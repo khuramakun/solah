@@ -548,7 +548,7 @@
       showLoading(true);
       const url = APP_CONFIG.GAS_URL;
       
-      if (!url || url.includes("URL_DEPLOY_GAS_ANDA_DISINI") || url === "") {
+      if (!url || url.includes("https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec") || url === "") {
         showLoading(false);
         showToast("Konfigurasi GAS_URL kosong atau belum disesuaikan!", "error");
         return { success: false, message: "URL backend GAS belum diatur." };
