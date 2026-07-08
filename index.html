@@ -2461,18 +2461,13 @@
     }
 
     function setupConfigurationBadge() {
-      const badge = document.getElementById("mode-badge");
-      if (!badge) return;
+  const badge = document.getElementById("mode-badge");
+  if (!badge) return;
 
-      if (!isGasEnvironment) {
-        badge.innerText = "PREVIEW MODE";
-        badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-cyan-400 border border-blue-200 dark:border-blue-500/20";
-      } else {
-        badge.innerText = "PRODUCTION MODE";
-        badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
-      }
-    }
-
+  // Ubah menjadi selalu PRODUCTION MODE
+  badge.innerText = "PRODUCTION MODE";
+  badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
+}
     window.onload = function() {
       initDarkMode();
       startClock();
