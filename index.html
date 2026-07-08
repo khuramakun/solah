@@ -590,27 +590,63 @@
   <!-- DRIVER INTERAKSI UTAMA (DUAL RUNTIME: GAS & STANDALONE DEMO) -->
   <script>
     async function fetchAPI(action, payload = {}) {
-      showLoading(true);
-      if (isGasEnvironment) {
-        return new Promise((resolve) => {
-          google.script.run
-            .withSuccessHandler((response) => {
-              showLoading(false);
-              resolve(response);
-            })
-            .withFailureHandler((err) => {
-              showLoading(false);
-              showToast("Koneksi gagal: " + err.message, "error");
-              resolve({ success: false, message: err.message });
-            })
-            .executeAction(action, payload);
-        });
-      } else {
-        const result = await simulateMockAPI(action, payload);
-        showLoading(false);
-        return result;
-      }
+  showLoading(true);
+  
+  // 1. Jika di lingkungan GAS, pakai google.script.run
+  if (isGasEnvironment) {
+    return new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler((response) => {
+          showLoading(false);
+          resolve(response);
+        })
+        .withFailureHandler((err) => {
+          showLoading(false);
+          showToast("Koneksi gagal: " + err.message, "error");
+          resolve({ success: false, message: err.message });
+        })
+        .executeAction(action, payload);
+    });
+  }
+  
+  // 2. Jika di GitHub Pages, kirim POST ke GAS_URL
+  try {
+    const url = APP_CONFIG.GAS_URL;
+    if (!url || url === "") {
+      throw new Error("GAS_URL belum diisi!");
     }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: action,
+        payload: payload
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    showLoading(false);
+    return result;
+
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    showLoading(false);
+    showToast("Gagal terhubung ke server: " + error.message, "error");
+    
+    // ❗ FALLBACK ke data dummy jika benar-benar error
+    // Ini hanya untuk keadaan darurat, bukan untuk penggunaan normal
+    // return await simulateMockAPI(action, payload);
+    return { success: false, message: "Koneksi ke server gagal. Periksa GAS_URL dan koneksi internet." };
+  }
+}
 
     async function simulateMockAPI(action, payload) {
       return new Promise((resolve) => {
