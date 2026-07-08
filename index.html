@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>E-Presensi Santri - WebApp Studio Pro</title>
+  <title>E-Presensi Santri - Darul Falah Amtsilati Garut</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- Memuat pustaka html5-qrcode CDN untuk pendeteksian kamera secara real-time -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -173,34 +173,41 @@
       }
     }
   </style>
-</head>
-<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col antialiased transition-colors duration-200">
 
   <script>
+    // 1. GLOBAL CONFIGURATION & INITIAL STATE DEFINITION
     const APP_CONFIG = {
       IS_PREVIEW: false,
-      GAS_URL: "https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec", 
+      GAS_URL: "URL_DEPLOY_GAS_ANDA_DISINI", // Silakan ganti dengan tautan Web App GAS Anda
       VERSION: "4.3.0"
     };
 
-    const isGasEnvironment = typeof google !== "undefined" && typeof google.script !== "undefined";
+    const isGasEnvironment = true;
+    const SHOW_DEMO_UI = true;
 
-    function isBloggerRuntime() {
-      const host = window.location.hostname || "";
-      return host.includes("blogspot.") || host.includes("blogger.") || (
-        host !== "localhost" && host !== "127.0.0.1" && !host.includes("gemini") && !host.includes("aistudio") &&
-        window.location.protocol !== "file:" && window.location.protocol !== "blob:"
-      );
-    }
+    // Database struktur awal yang disinkronisasi otomatis pasca login
+    let db = {
+      users: [],
+      classes: [],
+      students: [],
+      attendance: [],
+      excuses: [],
+      settings: {
+        pondokName: "Darul Falah Amtsilati Garut",
+        address: "Pondok Pesantren Terpadu Darul Falah, Garut",
+        phone: "0812-3456-7890",
+        closedClassesToday: []
+      }
+    };
 
-    function isCanvasOrLocalPreview() {
-      const host = window.location.hostname || "";
-      return host === "localhost" || host === "127.0.0.1" || host.includes("gemini") || host.includes("aistudio") ||
-        window.location.protocol === "file:" || window.location.protocol === "blob:";
-    }
-
-    const SHOW_DEMO_UI = false;
+    let currentSession = null;
+    let activeTab = "dashboard";
+    let html5QrcodeScanner = null;
+    let scanCooldown = false;
+    let laporanFilters = { classId: "", status: "", date: new Date().toISOString().split('T')[0] };
   </script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col antialiased transition-colors duration-200">
 
   <div id="app-container" class="flex-grow flex flex-col">
 
@@ -214,7 +221,7 @@
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-cyan-400 mb-3 border border-blue-100 dark:border-slate-700">
             <i class="fa-solid fa-star-and-crescent text-3xl"></i>
           </div>
-          <h1 id="login-pondok-name" class="text-2xl font-bold text-slate-800 dark:text-white">E-Presensi Pondok</h1>
+          <h1 id="login-pondok-name" class="text-2xl font-bold text-slate-800 dark:text-white">Darul Falah Amtsilati Garut</h1>
           <p class="text-sm text-slate-500 dark:text-slate-400">Sistem Absensi Barcode Terpadu Santri</p>
         </div>
 
@@ -263,7 +270,7 @@
             <i class="fa-solid fa-star-and-crescent"></i>
           </div>
           <div>
-            <h2 id="sidebar-pondok-title" class="font-bold text-white leading-tight text-sm truncate max-w-[150px]">Al-Hidayah</h2>
+            <h2 id="sidebar-pondok-title" class="font-bold text-white leading-tight text-sm truncate max-w-[150px]">Darul Falah</h2>
             <p class="text-[10px] text-cyan-400 font-semibold tracking-wider uppercase">E-Absensi Santri</p>
           </div>
         </div>
@@ -331,56 +338,7 @@
   </div>
 
   <script>
-    // DEKLARASI DATABASE DEMO/FALLBACK
-    const DUMMY_DB = {
-      users: [
-        { id: "U001", username: "kiyai", name: "K.H. Ahmad Muzakki", role: "Kiyai", position: "Pengasuh Pondok Pesantren", email: "muzakki@pesantren.com", avatar: "🕌" },
-        { id: "U002", username: "admin", name: "Ustadz Hanif, S.Pd.", role: "Administrasi", position: "Sekretaris Pondok & Admin Data", email: "hanif@pesantren.com", avatar: "💻" },
-        { id: "U003", username: "pengurus", name: "Ustadz Lukman Hakim", role: "Pengurus", position: "Wali Kelas Ula A & Pengajar Pagi", email: "lukman@pesantren.com", avatar: "👳" },
-        { id: "U004", username: "pengurus_ahmad", name: "Ustadzah Fatimah, S.Pd.", role: "Pengurus", position: "Wali Kelas Wustha A & Pengajar Siang", email: "fatimah@pesantren.com", avatar: "🧕" }
-      ],
-      classes: [
-        { id: "C001", name: "Kelas Ula A (Dasar)", wali: "Ustadz Lukman Hakim", total: 4, shift: "Pagi", kbmTime: "07:30" },
-        { id: "C002", name: "Kelas Ula B (Dasar)", wali: "Ustadz Hanif", total: 1, shift: "Pagi", kbmTime: "07:30" },
-        { id: "C003", name: "Kelas Wustha A (Menengah)", wali: "Ustadzah Fatimah", total: 2, shift: "Siang", kbmTime: "13:30" },
-        { id: "C004", name: "Kelas Wustha B (Menengah)", wali: "Ustadz Syamsul", total: 0, shift: "Sore", kbmTime: "16:00" }
-      ],
-      students: [
-        { id: "S001", name: "Muhammad Al-Fatih", nis: "2607001", classId: "C001", className: "Kelas Ula A (Dasar)", gender: "Laki-laki", barcode: "SAN-ALF-001", status: "Aktif" },
-        { id: "S002", name: "Achmad Zaini", nis: "2607002", classId: "C001", className: "Kelas Ula A (Dasar)", gender: "Laki-laki", barcode: "SAN-ZAI-002", status: "Aktif" },
-        { id: "S003", name: "Siti Aminah El-Zahra", nis: "2607003", classId: "C003", className: "Kelas Wustha A (Menengah)", gender: "Perempuan", barcode: "SAN-AMI-003", status: "Aktif" },
-        { id: "S004", name: "Raihan Ramadan", nis: "2607004", classId: "C001", className: "Kelas Ula A (Dasar)", gender: "Laki-laki", barcode: "SAN-RAI-004", status: "Aktif" },
-        { id: "S005", name: "Fathur Rahman", nis: "2607005", classId: "C002", className: "Kelas Ula B (Dasar)", gender: "Laki-laki", barcode: "SAN-FAT-005", status: "Aktif" },
-        { id: "S006", name: "Khadijah Al-Kubro", nis: "2607006", classId: "C003", className: "Kelas Wustha A (Menengah)", gender: "Perempuan", barcode: "SAN-KHA-006", status: "Aktif" },
-        { id: "S007", name: "Zulfa Azzahra", nis: "2607007", classId: "C001", className: "Kelas Ula A (Dasar)", gender: "Perempuan", barcode: "SAN-ZUL-007", status: "Aktif" }
-      ],
-      attendance: [
-        { id: "A001", studentId: "S001", name: "Muhammad Al-Fatih", className: "Kelas Ula A (Dasar)", date: "2026-07-07", time: "07:15:30", status: "Hadir", scanner: "Ustadz Lukman Hakim" },
-        { id: "A002", studentId: "S002", name: "Achmad Zaini", className: "Kelas Ula A (Dasar)", date: "2026-07-07", time: "07:32:12", status: "Terlambat", scanner: "Ustadz Lukman Hakim" },
-        { id: "A003", studentId: "S004", name: "Raihan Ramadan", className: "Kelas Ula A (Dasar)", date: "2026-07-07", time: "07:30:00", status: "Alfa", scanner: "Sistem (Ustadz Lukman Hakim)" },
-        { id: "A004", studentId: "S007", name: "Zulfa Azzahra", className: "Kelas Ula A (Dasar)", date: "2026-07-07", time: "07:30:00", status: "Alfa", scanner: "Sistem (Ustadz Lukman Hakim)" },
-        { id: "A005", studentId: "S005", name: "Fathur Rahman", className: "Kelas Ula B (Dasar)", date: "2026-07-07", time: "07:30:00", status: "Alfa", scanner: "Sistem (Ustadz Lukman Hakim)" }
-      ],
-      excuses: [
-        { id: "E001", studentId: "S003", studentName: "Siti Aminah El-Zahra", classId: "C003", className: "Kelas Wustha A (Menengah)", date: "2026-07-07", status: "Izin", reason: "Safar bersama keluarga syar'i" }
-      ],
-      settings: {
-        pondokName: "Pondok Pesantren Al-Hidayah",
-        address: "Jl. Kyai H. Hasyim Asy'ari No. 12, Jawa Timur",
-        phone: "0812-3456-7890",
-        closedClassesToday: [] 
-      }
-    };
-
-    let currentSession = null;
-    let activeTab = "dashboard";
-    let db = JSON.parse(JSON.stringify(DUMMY_DB));
-    let html5QrcodeScanner = null;
-    let scanCooldown = false;
-
-    let laporanFilters = { classId: "", status: "", date: "2026-07-07" };
-
-    // FUNGSI UNTUK MEMBUKA MODAL (MEMPERBAIKI ERROR 'openModal is not defined')
+    // FUNGSI UTAMA INTERFACE MODAL & NOTIFIKASI
     function openModal(contentHTML) {
       const modal = document.getElementById("universal-modal");
       const container = document.getElementById("modal-content-container");
@@ -390,7 +348,6 @@
       }
     }
 
-    // FUNGSI UNTUK MENUTUP MODAL (MEMPERBAIKI ERROR 'closeModal is not defined')
     function closeModal() {
       const modal = document.getElementById("universal-modal");
       if (modal) {
@@ -483,6 +440,18 @@
       }, 4000);
     }
 
+    function togglePasswordVisibility() {
+      const pwd = document.getElementById("password");
+      const icon = document.getElementById("password-toggle-icon");
+      if (pwd.type === "password") {
+        pwd.type = "text";
+        icon.className = "fa-solid fa-eye-slash";
+      } else {
+        pwd.type = "password";
+        icon.className = "fa-solid fa-eye";
+      }
+    }
+
     function playBeepSound(isSuccess) {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -505,7 +474,7 @@
           oscillator.stop(audioCtx.currentTime + 0.35);
         }
       } catch (e) {
-        console.warn("Audio Context blocked or not supported", e);
+        console.warn("Audio Context diblokir browser", e);
       }
     }
 
@@ -529,7 +498,7 @@
       for (let i = 0; i < rawStr.length; i++) {
         const char = rawStr[i];
         if (CODE39_MAP[char]) {
-          fullBinaryPattern += CODE39_MAP[char] + "0"; // Spasi pemisah
+          fullBinaryPattern += CODE39_MAP[char] + "0";
         }
       }
 
@@ -546,24 +515,6 @@
       }
 
       return `<svg width="100%" height="80" viewBox="0 0 ${currentX} 75" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="color: #000000 !important;">${svgRects}</svg>`;
-    }
-
-    function togglePasswordVisibility() {
-      const pwdField = document.getElementById("password");
-      const icon = document.getElementById("password-toggle-icon");
-      if (pwdField.type === "password") {
-        pwdField.type = "text";
-        icon.className = "fa-solid fa-eye-slash";
-      } else {
-        pwdField.type = "password";
-        icon.className = "fa-solid fa-eye";
-      }
-    }
-
-    function autoFillDemo(username, password) {
-      document.getElementById("username").value = username;
-      document.getElementById("password").value = password;
-      showToast(`Mengisi data demo: ${username.toUpperCase()}`, "info");
     }
 
     function printCard() {
@@ -587,256 +538,52 @@
     }
   </script>
 
-  <!-- DRIVER INTERAKSI UTAMA (DUAL RUNTIME: GAS & STANDALONE DEMO) -->
+  <!-- PENGHUBUNG SERVER REALTIME GOOGLE APPS SCRIPT via POST -->
   <script>
     async function fetchAPI(action, payload = {}) {
-  showLoading(true);
-  
-  // 1. Jika di lingkungan GAS, pakai google.script.run
-  if (isGasEnvironment) {
-    return new Promise((resolve) => {
-      google.script.run
-        .withSuccessHandler((response) => {
+      showLoading(true);
+      const url = APP_CONFIG.GAS_URL;
+      
+      if (!url || url.includes("https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec") || url === "") {
+        showLoading(false);
+        showToast("GAS_URL belum dikonfigurasi! Harap lengkapi di file index.html Anda.", "error");
+        return { success: false, message: "URL backend GAS belum diatur." };
+      }
+
+      let attempts = 0;
+      const maxAttempts = 3;
+      let delay = 1000;
+
+      while (attempts < maxAttempts) {
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            mode: "cors",
+            redirect: "follow",
+            headers: {
+              "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({ action, payload })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP status: ${response.status}`);
+          }
+
+          const responseData = await response.json();
           showLoading(false);
-          resolve(response);
-        })
-        .withFailureHandler((err) => {
-          showLoading(false);
-          showToast("Koneksi gagal: " + err.message, "error");
-          resolve({ success: false, message: err.message });
-        })
-        .executeAction(action, payload);
-    });
-  }
-  
-  // 2. Jika di GitHub Pages, kirim POST ke GAS_URL
-  try {
-    const url = APP_CONFIG.GAS_URL;
-    if (!url || url === "") {
-      throw new Error("GAS_URL belum diisi!");
-    }
-
-    const response = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: action,
-        payload: payload
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    showLoading(false);
-    return result;
-
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    showLoading(false);
-    showToast("Gagal terhubung ke server: " + error.message, "error");
-    
-    // ❗ FALLBACK ke data dummy jika benar-benar error
-    // Ini hanya untuk keadaan darurat, bukan untuk penggunaan normal
-    // return await simulateMockAPI(action, payload);
-    return { success: false, message: "Koneksi ke server gagal. Periksa GAS_URL dan koneksi internet." };
-  }
-}
-
-    async function simulateMockAPI(action, payload) {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          if (action === "getInitialState") {
-            resolve({ success: true, data: db });
+          return responseData;
+        } catch (error) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            showLoading(false);
+            showToast("Gagal terhubung ke Sheets. Periksa internet atau status Web App GAS.", "error");
+            return { success: false, message: error.message };
           }
-          else if (action === "login") {
-            const user = db.users.find(u => u.username === payload.username);
-            if (user && payload.password === "admin123") {
-              resolve({ success: true, message: "Autentikasi Berhasil", data: { user } });
-            } else {
-              resolve({ success: false, message: "Username/sandi salah! Sandi demo adalah 'admin123'." });
-            }
-          }
-          else if (action === "createUser") {
-            const newUser = {
-              id: "U" + (db.users.length + 1).toString().padStart(3, '0'),
-              username: payload.username,
-              name: payload.name,
-              role: payload.role,
-              position: payload.position,
-              email: payload.email,
-              avatar: payload.role === "Kiyai" ? "🕌" : (payload.role === "Administrasi" ? "💻" : "👳")
-            };
-            db.users.push(newUser);
-            resolve({ success: true, message: `Akun ${payload.role} berhasil didaftarkan!`, data: newUser });
-          }
-          else if (action === "deleteUser") {
-            db.users = db.users.filter(u => u.id !== payload.id);
-            resolve({ success: true, message: "Akun berhasil dihapus dari sistem." });
-          }
-          else if (action === "updateSettings") {
-            db.settings.pondokName = payload.pondokName;
-            db.settings.address = payload.address;
-            db.settings.phone = payload.phone;
-            resolve({ success: true, message: "Pengaturan Pondok berhasil disimpan!" });
-          }
-          else if (action === "createExcuse") {
-            const student = db.students.find(s => s.id === payload.studentId);
-            const newExcuse = {
-              id: "E" + (db.excuses.length + 1).toString().padStart(3, '0'),
-              studentId: payload.studentId,
-              studentName: student ? student.name : "Unknown",
-              classId: student ? student.classId : "",
-              className: student ? student.className : "Tanpa Kelas",
-              date: payload.date,
-              status: payload.status,
-              reason: payload.reason
-            };
-            db.excuses.push(newExcuse);
-            resolve({ success: true, message: `Izin harian santri berhasil diregistrasikan.`, data: newExcuse });
-          }
-          else if (action === "deleteExcuse") {
-            db.excuses = db.excuses.filter(e => e.id !== payload.id);
-            resolve({ success: true, message: "Pendaftaran izin santri dibatalkan." });
-          }
-          else if (action === "createStudent") {
-            const currentClass = db.classes.find(c => c.id === payload.classId);
-            const newStudent = {
-              id: "S" + (db.students.length + 1).toString().padStart(3, '0'),
-              name: payload.name,
-              nis: payload.nis,
-              classId: payload.classId,
-              className: currentClass ? currentClass.name : "Tanpa Kelas",
-              gender: payload.gender,
-              barcode: "SAN-" + payload.name.substring(0, 3).toUpperCase() + "-" + (db.students.length + 1).toString().padStart(3, '0'),
-              status: "Aktif"
-            };
-            db.students.push(newStudent);
-            if (currentClass) currentClass.total += 1;
-            resolve({ success: true, message: "Santri berhasil didaftarkan & Barcode dibuat!", data: newStudent });
-          }
-          else if (action === "createClass") {
-            const newClass = {
-              id: "C" + (db.classes.length + 1).toString().padStart(3, '0'),
-              name: payload.name,
-              wali: payload.wali,
-              shift: payload.shift,
-              kbmTime: payload.kbmTime,
-              total: 0
-            };
-            db.classes.push(newClass);
-            resolve({ success: true, message: "Kelas baru berhasil dibuat!", data: newClass });
-          }
-          else if (action === "scanStudentBarcode") {
-            const student = db.students.find(s => s.barcode === payload.barcode);
-            if (!student) {
-              resolve({ success: false, message: "Barcode santri tidak terdaftar di sistem!" });
-              return;
-            }
-            const today = new Date().toISOString().split('T')[0];
-            const alreadyChecked = db.attendance.find(a => a.studentId === student.id && a.date === today);
-            
-            if (alreadyChecked) {
-              resolve({ success: false, message: `Santri ${student.name} sudah melakukan absensi hari ini!` });
-              return;
-            }
-
-            const sClass = db.classes.find(c => c.id === student.classId);
-            const lateTolerance = sClass ? sClass.kbmTime : "07:30";
-
-            const nowTime = new Date().toTimeString().split(' ')[0];
-            const limitTime = lateTolerance + ":00";
-            const isLate = nowTime > limitTime;
-            const finalStatus = isLate ? "Terlambat" : "Hadir";
-
-            const newAttendance = {
-              id: "A" + (db.attendance.length + 1).toString().padStart(3, '0'),
-              studentId: student.id,
-              name: student.name,
-              className: student.className,
-              date: today,
-              time: nowTime,
-              status: finalStatus,
-              scanner: payload.operatorName
-            };
-            
-            db.attendance.unshift(newAttendance);
-            resolve({ 
-              success: true, 
-              message: isLate ? `BEEP! Terlambat (${nowTime} > Batas ${lateTolerance}). Presensi ${student.name} terekam.` : `BEEP! Tepat waktu. Presensi ${student.name} terekam.`, 
-              data: newAttendance 
-            });
-          }
-          else if (action === "updateAttendanceStatus") {
-            const attendanceRecord = db.attendance.find(a => a.id === payload.id);
-            if (attendanceRecord) {
-              attendanceRecord.status = payload.status;
-              resolve({ success: true, message: "Status kehadiran diperbarui!", data: attendanceRecord });
-            } else {
-              resolve({ success: false, message: "Data absensi tidak ditemukan!" });
-            }
-          }
-          else if (action === "processAutoAlfaPerClass") {
-            const today = payload.date || new Date().toISOString().split('T')[0];
-            const classId = payload.classId;
-            const closureKey = `${classId}-${today}`;
-
-            if (db.settings.closedClassesToday.includes(closureKey)) {
-              resolve({ success: false, message: "Absensi kelas ini sudah ditutup & auto-Alfa sudah selesai diproses hari ini!" });
-              return;
-            }
-
-            let alfaCount = 0;
-            let excuseAppliedCount = 0;
-
-            const targetClass = db.classes.find(c => c.id === classId);
-            if (!targetClass) {
-              resolve({ success: false, message: "Kelas tidak ditemukan." });
-              return;
-            }
-
-            const classStudents = db.students.filter(s => s.classId === classId);
-
-            classStudents.forEach(student => {
-              const hasAttended = db.attendance.some(a => a.studentId === student.id && a.date === today);
-              
-              if (!hasAttended) {
-                const hasExcuse = db.excuses.find(e => e.studentId === student.id && e.date === today);
-                let targetStatus = "Alfa";
-                
-                if (hasExcuse) {
-                  targetStatus = hasExcuse.status; 
-                  excuseAppliedCount++;
-                } else {
-                  alfaCount++;
-                }
-
-                db.attendance.push({
-                  id: "A" + (db.attendance.length + 1).toString().padStart(3, '0'),
-                  studentId: student.id,
-                  name: student.name,
-                  className: student.className,
-                  date: today,
-                  time: targetClass.kbmTime + ":00", 
-                  status: targetStatus,
-                  scanner: `Sistem (${payload.operatorName})`
-                });
-              }
-            });
-
-            db.settings.closedClassesToday.push(closureKey);
-            resolve({ 
-              success: true, 
-              message: `Presensi ${targetClass.name} Berhasil Ditutup! ${alfaCount} Santri diset Alfa, ${excuseAppliedCount} diset Izin/Sakit.` 
-            });
-          }
-        }, 300);
-      });
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; 
+        }
+      }
     }
 
     function showLoading(visible) {
@@ -862,25 +609,20 @@
 
       const response = await fetchAPI("login", { username: usernameInput, password: passwordInput });
 
-      if (response.success) {
+      if (response && response.success) {
         currentSession = response.data.user;
-        showToast(`Selamat datang, ${currentSession.name}!`, "success");
+        db = response.data.db; // Sinkronisasi database cloud seutuhnya
+        
+        showToast(`Selamat datang kembali, ${currentSession.name}!`, "success");
         
         document.getElementById("login-screen").classList.add("hidden");
         document.getElementById("main-portal").classList.remove("hidden");
         
-        if (isGasEnvironment) {
-          const stateRes = await fetchAPI("getInitialState");
-          if (stateRes && stateRes.success) {
-            db = stateRes.data;
-          }
-        }
-
         setupProfileShell();
         buildResponsiveMenus();
         switchTab("dashboard");
       } else {
-        showToast(response.message, "error");
+        showToast(response ? response.message : "Gagal terhubung ke Google Sheets.", "error");
       }
     }
 
@@ -983,11 +725,9 @@
 
   <script>
     async function syncDatabaseState() {
-      if (isGasEnvironment) {
-        const res = await fetchAPI("getInitialState");
-        if (res && res.success) {
-          db = res.data;
-        }
+      const res = await fetchAPI("getInitialState");
+      if (res && res.success) {
+        db = res.data;
       }
     }
 
@@ -1029,12 +769,12 @@
           renderProfilView(container);
           break;
         default:
-          container.innerHTML = `<div class="p-4 bg-white dark:bg-slate-900 rounded-xl shadow text-slate-800 dark:text-white">Memuat halaman...</div>`;
+          container.innerHTML = `<div class="p-4 bg-white dark:bg-slate-900 rounded-xl shadow text-slate-800 dark:text-white">Memuat...</div>`;
       }
     }
 
     // ==========================================
-    // 1. DASHBOARD COMPONENT
+    // 1. DASHBOARD VIEW
     // ==========================================
     function renderDashboard(container) {
       const today = new Date().toISOString().split('T')[0];
@@ -1066,7 +806,7 @@
               <button onclick="switchTab('scanner')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs shadow-md shadow-blue-600/10 transition text-center">
                 <i class="fa-solid fa-camera mr-1"></i> Scan Barcode
               </button>
-              <button onclick="switchTab('kontrol_harian')" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-2 rounded-xl text-xs transition text-center">
+              <button onclick="switchTab('kontrol_harian')" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-880 dark:hover:bg-slate-700 text-white font-bold py-2 rounded-xl text-xs transition text-center">
                 <i class="fa-solid fa-folder-open mr-1"></i> Izin & Tutup Absen
               </button>
             </div>
@@ -1209,7 +949,7 @@
     }
 
     // ==========================================
-    // 2. SCAN BARCODE SCREEN (PENGURUS ONLY)
+    // 2. SCAN BARCODE VIEW (PENGURUS ONLY)
     // ==========================================
     function renderScannerView(container) {
       const today = new Date().toISOString().split('T')[0];
@@ -1227,7 +967,6 @@
             </div>
           </div>
 
-          <!-- LAYOUT CONTAINER KAMERA SCANNER -->
           <div class="bg-slate-900 rounded-2xl overflow-hidden relative border border-slate-800 shadow-xl p-4 space-y-4">
             <div class="flex justify-between items-center">
               <span class="bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center">
@@ -1238,7 +977,6 @@
               </button>
             </div>
 
-            <!-- Jendela Pemindai html5-qrcode -->
             <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex flex-col justify-center items-center">
               <div id="reader-container" class="w-full h-full max-w-md mx-auto"></div>
               
@@ -1248,7 +986,6 @@
                 <p class="text-xs text-slate-400 mt-1 max-w-xs">Pastikan Anda telah mengizinkan akses kamera di browser dan menggunakan protokol https (SSL) untuk server Web App.</p>
               </div>
 
-              <!-- Bingkai Pembaca Laser Kosmetik -->
               <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div class="w-44 h-44 md:w-52 md:h-52 border-2 border-dashed border-blue-400 rounded-2xl relative">
                   <div class="scanner-laser absolute inset-x-0 h-0.5 bg-blue-400/80 shadow-[0_0_12px_#3b82f6]"></div>
@@ -1256,7 +993,6 @@
               </div>
             </div>
 
-            <!-- FALLBACK SIMULATOR -->
             <div class="bg-slate-950/80 backdrop-blur-md p-3 rounded-xl border border-white/10 space-y-3">
               <p class="text-center text-[11px] text-slate-300 font-semibold">Simulasi Klik Manual (Gunakan jika izin kamera diblokir browser):</p>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1">
@@ -1296,7 +1032,6 @@
       }, 300);
     }
 
-    // MEMAKSA KONEKSI KAMERA DAN MEMASTIKAN BROWSER MENYETUJUI IZIN HARDWARE
     async function startCameraScanner() {
       if (typeof Html5Qrcode === 'undefined') {
         showToast("Sedang memuat pustaka scanner kamera. Harap tunggu...", "warning");
@@ -1307,13 +1042,12 @@
       const readerElement = document.getElementById("reader-container");
       if (!readerElement) return;
 
-      // Alur Paksa Koneksi: Meminta izin aktif secara eksplisit ke browser
       try {
         const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        testStream.getTracks().forEach(track => track.stop()); // Matikan kembali setelah disetujui agar html5-qrcode bisa menduduki stream utama
+        testStream.getTracks().forEach(track => track.stop());
         document.getElementById("camera-error-msg").classList.add("hidden");
       } catch (err) {
-        console.error("Izin akses kamera diblokir atau gagal:", err);
+        console.error("Izin akses kamera ditolak:", err);
         document.getElementById("camera-error-msg").classList.remove("hidden");
         showToast("Gagal menyambungkan kamera. Harap setujui izin perangkat!", "error");
         return;
@@ -1339,9 +1073,7 @@
             scanCooldown = false;
           }, 3500);
         },
-        (errorMessage) => {
-          // Callback debugging
-        }
+        (errorMessage) => {}
       ).catch(err => {
         console.error("Gagal memulai modul kamera html5-qrcode:", err);
         const errAlert = document.getElementById("camera-error-msg");
@@ -1354,12 +1086,8 @@
         try {
           html5QrcodeScanner.stop().then(() => {
             console.log("Kamera pemindai dihentikan secara aman.");
-          }).catch(err => {
-            // Abaikan penutupan jika tidak aktif
-          });
-        } catch (e) {
-          // Exception silencer
-        }
+          }).catch(err => {});
+        } catch (e) {}
       }
     }
 
@@ -1373,19 +1101,19 @@
         operatorName: currentSession.name 
       });
       
-      if (res.success) {
+      if (res && res.success) {
         playBeepSound(true);
         showToast(res.message, "success");
         renderPage("scanner"); 
       } else {
         playBeepSound(false);
-        showToast(res.message, "warning");
+        showToast(res ? res.message : "Gagal memindai barcode", "warning");
       }
     }
   </script>
 
   <!-- ==========================================
-       3. DAILY EXCUSE & CLOSURE CONTROL
+       3. DAILY EXCUSE & CLOSURE VIEW
        ========================================== -->
   <script>
     function renderKontrolHarianView(container) {
@@ -1525,7 +1253,7 @@
       };
 
       const res = await fetchAPI("createExcuse", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("kontrol_harian");
@@ -1534,7 +1262,7 @@
 
     async function deleteExcuseRecord(id) {
       const res = await fetchAPI("deleteExcuse", { id });
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         renderPage("kontrol_harian");
       }
@@ -1585,18 +1313,18 @@
         date: today,
         operatorName: currentSession.name
       });
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("kontrol_harian");
       } else {
-        showToast(res.message, "warning");
+        showToast(res ? res.message : "Gagal menutup presensi kelas", "warning");
       }
     }
   </script>
 
   <!-- ==========================================
-       4. STUDENT DATA MANAGEMENT & BARCODE CREATION
+       4. DATA SANTRI VIEW
        ========================================== -->
   <script>
     function renderSantriView(container) {
@@ -1620,7 +1348,7 @@
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                   <i class="fa-solid fa-magnifying-glass"></i>
                 </span>
-                <input type="text" id="student-search-bar" oninput="filterStudentTable()" placeholder="Cari nama atau NIS santri..." class="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-850">
+                <input type="text" id="student-search-bar" oninput="filterStudentTable()" placeholder="Cari nama atau NIS santri..." class="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-855">
               </div>
             </div>
 
@@ -1729,12 +1457,12 @@
       };
 
       const res = await fetchAPI("createStudent", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("santri");
       } else {
-        showToast(res.message, "error");
+        showToast(res ? res.message : "Gagal menyimpan data santri", "error");
       }
     }
 
@@ -1751,7 +1479,7 @@
             <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
           </div>
 
-          <!-- KARTU UTAMA TARGET CETAK FISIK -->
+          <!-- KARTU ID CARD -->
           <div class="mx-auto max-w-xs bg-gradient-to-b from-blue-900 to-indigo-950 p-5 rounded-2xl text-white shadow-lg space-y-4 relative border border-blue-500/30 print-card-target">
             <div class="flex items-center space-x-2 justify-center border-b border-white/10 pb-2">
               <i class="fa-solid fa-star-and-crescent text-cyan-400 text-lg"></i>
@@ -1768,7 +1496,6 @@
               <p class="text-[10px] text-cyan-200 mt-1 font-semibold">${student.className}</p>
             </div>
 
-            <!-- Bagian Barcode Vektor -->
             <div class="bg-white p-2.5 rounded-lg inline-block w-full text-center">
               <div class="flex justify-center items-center">
                 ${barcodeSVG}
@@ -1902,18 +1629,18 @@
       };
 
       const res = await fetchAPI("createClass", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("kelas");
       } else {
-        showToast(res.message, "error");
+        showToast(res ? res.message : "Gagal membuat kelas baru", "error");
       }
     }
   </script>
 
   <!-- ==========================================
-       6. ADMINISTRASI SUBTAB: KELOLA AKUN PENGURUS
+       6. AKUN PENGURUS VIEW
        ========================================== -->
   <script>
     function renderKelolaPengurusView(container) {
@@ -1989,7 +1716,7 @@
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Username Login</label>
-              <input type="text" id="add-p-username" required placeholder="Contoh: fauzi_pengurus" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-805 bg-white dark:bg-slate-800">
+              <input type="text" id="add-p-username" required placeholder="Contoh: fauzi_pengurus" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-855 bg-white dark:bg-slate-800">
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Password Default</label>
@@ -2028,7 +1755,7 @@
       };
 
       const res = await fetchAPI("createUser", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("kelola_pengurus");
@@ -2037,7 +1764,7 @@
   </script>
 
   <!-- ==========================================
-       7. KIYAI SUBTAB: MANAJEMEN USER LENGKAP
+       7. MANAJEMEN USER VIEW (KIYAI ONLY)
        ========================================== -->
   <script>
     function renderUsersManagementView(container) {
@@ -2105,7 +1832,7 @@
 
     async function deleteUserRecord(id, tabToRefresh) {
       const res = await fetchAPI("deleteUser", { id });
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         renderPage(tabToRefresh);
       }
@@ -2169,7 +1896,7 @@
       };
 
       const res = await fetchAPI("createUser", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
         renderPage("users_management");
@@ -2178,7 +1905,7 @@
   </script>
 
   <!-- ==========================================
-       8. KIYAI SUBTAB: PENGATURAN PONDOK LENGKAP
+       8. PENGATURAN PONDOK VIEW (KIYAI ONLY)
        ========================================== -->
   <script>
     function renderSettingsPondokView(container) {
@@ -2228,7 +1955,7 @@
       };
 
       const res = await fetchAPI("updateSettings", payload);
-      if (res.success) {
+      if (res && res.success) {
         showToast(res.message, "success");
         syncPondokNaming();
         renderPage("settings_pondok");
@@ -2237,12 +1964,12 @@
   </script>
 
   <!-- ==========================================
-       9. ATTENDANCE JOURNAL REPORT VIEW
+       9. REKAP PRESENSI / LAPORAN VIEW
        ========================================== -->
   <script>
     function renderLaporanView(container) {
       if (!laporanFilters.date) {
-        laporanFilters.date = "2026-07-07";
+        laporanFilters.date = new Date().toISOString().split('T')[0];
       }
 
       let contentHTML = `
@@ -2262,7 +1989,6 @@
             </div>
           </div>
 
-          <!-- DROP DOWN FILTER DIKOREKSI -->
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4 transition-colors duration-200 no-print">
             <div>
               <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Pilih Kelas</label>
@@ -2413,28 +2139,25 @@
     }
 
     async function updateStatus(id, newStatus) {
-      const res = await fetchAPI("updateAttendanceStatus", { id: id, status: newStatus });
-      if (res.success) {
-        showToast(res.message, "success");
+      const resUpdate = await fetchAPI("updateAttendanceStatus", { id: id, status: newStatus });
+      if (resUpdate && resUpdate.success) {
+        showToast(resUpdate.message, "success");
         closeModal();
         
-        if (!isGasEnvironment) {
-          const target = db.attendance.find(a => a.id === id);
-          if (target) target.status = newStatus;
-        } else {
-          const stateRes = await fetchAPI("getInitialState");
-          if (stateRes.success) db = stateRes.data;
+        const resSync = await fetchAPI("getInitialState");
+        if (resSync && resSync.success) {
+          db = resSync.data;
         }
 
         renderLaporanTableRows();
       } else {
-        showToast(res.message, "error");
+        showToast(resUpdate ? resUpdate.message : "Gagal merubah status", "error");
       }
     }
   </script>
 
   <!-- ==========================================
-       10. PROFILE VIEW
+       10. PROFIL SAKU VIEW
        ========================================== -->
   <script>
     function renderProfilView(container) {
@@ -2467,6 +2190,11 @@
   </script>
 
   <script>
+    function autoFillDemo(username, password) {
+      document.getElementById("username").value = username;
+      document.getElementById("password").value = password;
+    }
+
     function renderDemoOnlyUI() {
       if (!SHOW_DEMO_UI) return;
       
@@ -2477,19 +2205,19 @@
         <div class="bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-2xl p-4 space-y-3" id="demo-panel">
           <div class="flex items-center space-x-2 text-blue-800 dark:text-cyan-400 font-bold text-xs">
             <i class="fa-solid fa-circle-info"></i>
-            <span>SIMULASI AKUN PORTAL</span>
+            <span>AKUN SEEDER DEFAULT (DATABASE)</span>
           </div>
-          <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Pilih salah satu peran di bawah ini untuk menguji hak akses serta batasan kelas masing-masing:</p>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Silakan klik salah satu untuk mengisi otomatis, lalu klik tombol masuk:</p>
           
           <div class="grid grid-cols-3 gap-2">
             <button type="button" onclick="autoFillDemo('kiyai', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              🕌 Kiyai (Pimpinan)
+              Kiyai (Pimpinan)
             </button>
             <button type="button" onclick="autoFillDemo('admin', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              💻 Admin (Konfigurasi)
+              Admin (Konfigurasi)
             </button>
             <button type="button" onclick="autoFillDemo('pengurus', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              👳 Pengurus (Scan & Izin)
+              Pengurus (Scan & Izin)
             </button>
           </div>
         </div>
@@ -2497,13 +2225,21 @@
     }
 
     function setupConfigurationBadge() {
-  const badge = document.getElementById("mode-badge");
-  if (!badge) return;
+      const badge = document.getElementById("mode-badge");
+      if (!badge) return;
 
-  // Langsung set PRODUCTION MODE tanpa kondisi
-  badge.innerText = "PRODUCTION MODE";
-  badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
-  
-  // Opsional: sembunyikan jika tidak ingin ditampilkan
-  // badge.classList.add("hidden");
-}
+      badge.innerText = "PRODUCTION CLOUD";
+      badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
+    }
+
+    window.onload = function() {
+      initDarkMode();
+      startClock();
+      renderDemoOnlyUI();
+      setupConfigurationBadge();
+      syncPondokNaming();
+    };
+  </script>
+
+</body>
+</html>
