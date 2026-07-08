@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>E-Presensi Santri - WebApp Studio Pro</title>
   
-  <!-- Tambahkan ini untuk menghilangkan error 404 favicon -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>">
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -593,59 +590,27 @@
   <!-- DRIVER INTERAKSI UTAMA (DUAL RUNTIME: GAS & STANDALONE DEMO) -->
   <script>
     async function fetchAPI(action, payload = {}) {
-  showLoading(true);
-  
-  // Jika di lingkungan GAS, pakai google.script.run
-  if (isGasEnvironment) {
-    return new Promise((resolve) => {
-      google.script.run
-        .withSuccessHandler((response) => {
-          showLoading(false);
-          resolve(response);
-        })
-        .withFailureHandler((err) => {
-          showLoading(false);
-          showToast("Koneksi gagal: " + err.message, "error");
-          resolve({ success: false, message: err.message });
-        })
-        .executeAction(action, payload);
-    });
-  }
-  
-  // Jika di GitHub Pages, pakai fetch ke GAS_URL
-  try {
-    const url = APP_CONFIG.GAS_URL;
-    
-    // Kirim request ke GAS dengan method POST
-    const response = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: action,
-        payload: payload
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
+      showLoading(true);
+      if (isGasEnvironment) {
+        return new Promise((resolve) => {
+          google.script.run
+            .withSuccessHandler((response) => {
+              showLoading(false);
+              resolve(response);
+            })
+            .withFailureHandler((err) => {
+              showLoading(false);
+              showToast("Koneksi gagal: " + err.message, "error");
+              resolve({ success: false, message: err.message });
+            })
+            .executeAction(action, payload);
+        });
+      } else {
+        const result = await simulateMockAPI(action, payload);
+        showLoading(false);
+        return result;
+      }
     }
-    
-    const result = await response.json();
-    showLoading(false);
-    return result;
-    
-  } catch (error) {
-    console.error('Fetch Error:', error);
-    showLoading(false);
-    showToast("Gagal terhubung ke server: " + error.message, "error");
-    
-    // Fallback ke mock data jika fetch gagal
-    return await simulateMockAPI(action, payload);
-  }
-}
 
     async function simulateMockAPI(action, payload) {
       return new Promise((resolve) => {
