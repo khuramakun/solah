@@ -2464,18 +2464,10 @@
   const badge = document.getElementById("mode-badge");
   if (!badge) return;
 
-  // Ubah menjadi selalu PRODUCTION MODE
+  // Langsung set PRODUCTION MODE tanpa kondisi
   badge.innerText = "PRODUCTION MODE";
   badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
+  
+  // Opsional: sembunyikan jika tidak ingin ditampilkan
+  // badge.classList.add("hidden");
 }
-    window.onload = function() {
-      initDarkMode();
-      startClock();
-      renderDemoOnlyUI();
-      setupConfigurationBadge();
-      syncPondokNaming();
-    };
-  </script>
-
-</body>
-</html>
