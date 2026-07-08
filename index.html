@@ -178,7 +178,7 @@
     // 1. CONFIGURASI PRODUKSI UTAMA (GITHUB & GOOGLE SHEETS)
     const APP_CONFIG = {
       IS_PREVIEW: false,
-      GAS_URL: "https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec", // Ganti dengan URL Web App Apps Script Anda
+      GAS_URL: "https://script.google.com/macros/s/AKfycbzHXB00M-VH-39upx0o89pIJ2JtSiMODKy3w2CyoydZ9olND23bjCSuAKSv4NTFzVDH/exec", // Ganti dengan URL Web App Apps Script Anda
       VERSION: "4.4.0"
     };
 
@@ -545,17 +545,14 @@
   <!-- PENGHUBUNG SERVER REALTIME GOOGLE APPS SCRIPT via POST -->
   <script>
     async function fetchAPI(action, payload = {}) {
-  console.log("fetchAPI dipanggil dengan action:", action);
-  showLoading(true);
-  const url = APP_CONFIG.GAS_URL;
-  console.log("URL:", url);
-
-  if (!url || url === "" || !url.startsWith("https://script.google.com/macros/s/")) {
-    console.error("URL tidak valid!");
-    showLoading(false);
-    showToast("Konfigurasi GAS_URL tidak valid!", "error");
-    return { success: false, message: "URL backend GAS belum diatur." };
-  }
+      showLoading(true);
+      const url = APP_CONFIG.GAS_URL;
+      
+      if (!url || url.includes("URL_DEPLOY_GAS_ANDA_DISINI") || url === "") {
+        showLoading(false);
+        showToast("Konfigurasi GAS_URL kosong atau belum disesuaikan!", "error");
+        return { success: false, message: "URL backend GAS belum diatur." };
+      }
 
       let attempts = 0;
       const maxAttempts = 3;
@@ -2235,7 +2232,7 @@
     }
 
     function checkGASUrlConfig() {
-      if (APP_CONFIG.GAS_URL === "https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec" || !APP_CONFIG.GAS_URL) {
+      if (APP_CONFIG.GAS_URL === "URL_DEPLOY_GAS_ANDA_DISINI" || !APP_CONFIG.GAS_URL) {
         const warning = document.getElementById("config-warning");
         if (warning) warning.classList.remove("hidden");
       }
