@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Memuat pustaka html5-qrcode CDN untuk pendeteksian kamera secara real-time -->
+  <!-- Pustaka html5-qrcode CDN untuk pendeteksian kamera secara real-time -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   
   <style>
@@ -175,17 +175,14 @@
   </style>
 
   <script>
-    // 1. GLOBAL CONFIGURATION & INITIAL STATE DEFINITION
+    // 1. CONFIGURASI PRODUKSI UTAMA (GITHUB & GOOGLE SHEETS)
     const APP_CONFIG = {
       IS_PREVIEW: false,
-      GAS_URL: "URL_DEPLOY_GAS_ANDA_DISINI", // Silakan ganti dengan tautan Web App GAS Anda
-      VERSION: "4.3.0"
+      GAS_URL: "https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec", // Ganti dengan URL Web App Apps Script Anda
+      VERSION: "4.4.0"
     };
 
-    const isGasEnvironment = true;
-    const SHOW_DEMO_UI = true;
-
-    // Database struktur awal yang disinkronisasi otomatis pasca login
+    // Struktur database internal (Disinkronkan secara real-time dengan Google Sheets)
     let db = {
       users: [],
       classes: [],
@@ -217,6 +214,13 @@
       <div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"></div>
 
       <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 md:p-8 z-10 border border-blue-100 dark:border-slate-800 relative transition-colors duration-200">
+        
+        <!-- Peringatan Jika Belum Konfigurasi URL Backend -->
+        <div id="config-warning" class="hidden mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 rounded-xl text-rose-600 dark:text-rose-400 text-xs text-center">
+          <i class="fa-solid fa-triangle-exclamation mr-1.5 animate-pulse"></i>
+          <strong>Perhatian:</strong> Silakan edit berkas <code>index.html</code> Anda dan masukkan link <strong>GAS_URL</strong> sebelum melakukan login produksi.
+        </div>
+
         <div class="text-center mb-6">
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-cyan-400 mb-3 border border-blue-100 dark:border-slate-700">
             <i class="fa-solid fa-star-and-crescent text-3xl"></i>
@@ -239,7 +243,6 @@
           <div>
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Kata Sandi</label>
-              <a href="#" class="text-xs text-blue-600 dark:text-cyan-400 hover:underline">Lupa Sandi?</a>
             </div>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -257,8 +260,6 @@
             <i class="fa-solid fa-right-to-bracket ml-2"></i>
           </button>
         </form>
-
-        <div id="demo-account-container" class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800"></div>
       </div>
     </div>
 
@@ -305,6 +306,9 @@
           </div>
 
           <div class="flex items-center space-x-2 md:space-x-3">
+            <button onclick="manualSync()" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all active:scale-95" title="Sinkronkan Google Sheets">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
             <span id="mode-badge" class="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
             <button id="dark-mode-btn" onclick="toggleDarkMode()" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-150">
               <i class="fa-solid fa-moon"></i>
@@ -327,8 +331,8 @@
   <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center">
     <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-xl flex flex-col items-center max-w-xs text-center border border-slate-100 dark:border-slate-800">
       <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="font-bold text-slate-800 dark:text-white text-sm">Menghubungkan Server</p>
-      <p class="text-xs text-slate-400 mt-1">Harap tunggu, memproses data...</p>
+      <p class="font-bold text-slate-800 dark:text-white text-sm">Sinkronisasi Cloud</p>
+      <p class="text-xs text-slate-400 mt-1">Harap tunggu, memproses data Google Sheets...</p>
     </div>
   </div>
   
@@ -544,9 +548,9 @@
       showLoading(true);
       const url = APP_CONFIG.GAS_URL;
       
-      if (!url || url.includes("https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec") || url === "") {
+      if (!url || url.includes("URL_DEPLOY_GAS_ANDA_DISINI") || url === "") {
         showLoading(false);
-        showToast("GAS_URL belum dikonfigurasi! Harap lengkapi di file index.html Anda.", "error");
+        showToast("Konfigurasi GAS_URL kosong atau belum disesuaikan!", "error");
         return { success: false, message: "URL backend GAS belum diatur." };
       }
 
@@ -577,7 +581,7 @@
           attempts++;
           if (attempts >= maxAttempts) {
             showLoading(false);
-            showToast("Gagal terhubung ke Sheets. Periksa internet atau status Web App GAS.", "error");
+            showToast("Gagal terhubung ke Sheets database. Periksa koneksi atau status GAS Web App.", "error");
             return { success: false, message: error.message };
           }
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -611,9 +615,9 @@
 
       if (response && response.success) {
         currentSession = response.data.user;
-        db = response.data.db; // Sinkronisasi database cloud seutuhnya
+        db = response.data.db; // Sinkronisasi database cloud seutuhnya pasca login
         
-        showToast(`Selamat datang kembali, ${currentSession.name}!`, "success");
+        showToast(`Selamat datang, ${currentSession.name}!`, "success");
         
         document.getElementById("login-screen").classList.add("hidden");
         document.getElementById("main-portal").classList.remove("hidden");
@@ -633,7 +637,7 @@
       document.getElementById("password").value = "";
       document.getElementById("login-screen").classList.remove("hidden");
       document.getElementById("main-portal").classList.add("hidden");
-      showToast("Anda telah keluar dari sistem secara aman.", "info");
+      showToast("Sesi berhasil diakhiri secara aman.", "info");
     }
 
     function setupProfileShell() {
@@ -724,18 +728,26 @@
   </script>
 
   <script>
-    async function syncDatabaseState() {
+    // Sinkronisasi data utama (Memperbaharui memori db dari Cloud Sheets)
+    async function syncDatabaseState(showLoader = true) {
+      if (showLoader) showLoading(true);
       const res = await fetchAPI("getInitialState");
       if (res && res.success) {
         db = res.data;
+        syncPondokNaming();
       }
+      if (showLoader) showLoading(false);
     }
 
-    async function renderPage(tabId) {
+    async function manualSync() {
+      await syncDatabaseState(true);
+      renderPage(activeTab);
+      showToast("Data E-Presensi berhasil disinkronkan!", "success");
+    }
+
+    function renderPage(tabId) {
       const container = document.getElementById("main-view-container");
       if (!container) return;
-
-      await syncDatabaseState();
 
       switch(tabId) {
         case "dashboard":
@@ -769,7 +781,7 @@
           renderProfilView(container);
           break;
         default:
-          container.innerHTML = `<div class="p-4 bg-white dark:bg-slate-900 rounded-xl shadow text-slate-800 dark:text-white">Memuat...</div>`;
+          container.innerHTML = `<div class="p-4 bg-white dark:bg-slate-900 rounded-xl shadow text-slate-800 dark:text-white">Memuat Halaman...</div>`;
       }
     }
 
@@ -960,7 +972,7 @@
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Pemindai Barcode/QR Kelas</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Scan kartu barcode fisik santri secara real-time</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Arahkan kartu barcode santri ke arah kamera aktif</p>
             </div>
             <div class="text-right">
               <span class="text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-cyan-400 px-3 py-1 rounded-full font-semibold">Petugas: ${currentSession.name}</span>
@@ -973,7 +985,7 @@
                 <span class="w-2 h-2 rounded-full bg-white animate-ping mr-1.5"></span> KAMERA AKTIF
               </span>
               <button onclick="startCameraScanner()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1 px-3 rounded-lg flex items-center transition">
-                <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Hubungkan Kamera
+                <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Sambungkan Kamera
               </button>
             </div>
 
@@ -983,7 +995,7 @@
               <div id="camera-error-msg" class="absolute inset-0 bg-slate-900/90 text-center flex flex-col items-center justify-center p-4 hidden">
                 <i class="fa-solid fa-camera-slash text-4xl text-rose-500 mb-2"></i>
                 <p class="text-sm font-bold text-white">Kamera tidak dapat diakses</p>
-                <p class="text-xs text-slate-400 mt-1 max-w-xs">Pastikan Anda telah mengizinkan akses kamera di browser dan menggunakan protokol https (SSL) untuk server Web App.</p>
+                <p class="text-xs text-slate-400 mt-1 max-w-xs">Harap setujui izin kamera di browser dan jalankan di protokol aman (HTTPS/SSL).</p>
               </div>
 
               <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -994,14 +1006,14 @@
             </div>
 
             <div class="bg-slate-950/80 backdrop-blur-md p-3 rounded-xl border border-white/10 space-y-3">
-              <p class="text-center text-[11px] text-slate-300 font-semibold">Simulasi Klik Manual (Gunakan jika izin kamera diblokir browser):</p>
+              <p class="text-center text-[11px] text-slate-300 font-semibold"><i class="fa-solid fa-keyboard mr-1.5"></i> Kehadiran Manual (Gunakan jika santri tidak membawa kartu):</p>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1">
                 ${db.students.map(s => {
                   const sClass = db.classes.find(c => c.id === s.classId);
                   const limitTime = sClass ? sClass.kbmTime : "07:30";
                   const isScanned = todayRecords.some(a => a.studentId === s.id);
                   return `
-                    <button onclick="simulateBarcodeScan('${s.barcode}')" ${isScanned ? 'disabled' : ''} class="px-2 py-1.5 text-left text-[10px] font-semibold rounded-lg border flex flex-col justify-between transition ${
+                    <button onclick="processVerifiedBarcode('${s.barcode}')" ${isScanned ? 'disabled' : ''} class="px-2 py-1.5 text-left text-[10px] font-semibold rounded-lg border flex flex-col justify-between transition ${
                       isScanned ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed' : 'bg-slate-900 hover:bg-blue-600 text-white border-blue-800/40'
                     }">
                       <span class="truncate pr-1 font-bold">${s.name}</span>
@@ -1016,7 +1028,7 @@
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors duration-200">
             <div class="space-y-1">
               <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Absensi Ter-scan Hari Ini</h4>
-              <p class="text-sm font-extrabold text-slate-800 dark:text-white">${todayRecords.length} Santri Berhasil Scan</p>
+              <p class="text-sm font-extrabold text-slate-800 dark:text-white">${todayRecords.length} Santri Berhasil Absen</p>
             </div>
             <button onclick="switchTab('dashboard')" class="text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-2 px-4 rounded-xl font-bold transition">
               Selesai & Lihat Dashboard
@@ -1034,7 +1046,7 @@
 
     async function startCameraScanner() {
       if (typeof Html5Qrcode === 'undefined') {
-        showToast("Sedang memuat pustaka scanner kamera. Harap tunggu...", "warning");
+        showToast("Sedang memuat sistem scanner kamera. Harap tunggu...", "warning");
         return;
       }
       stopCameraScanner();
@@ -1047,9 +1059,9 @@
         testStream.getTracks().forEach(track => track.stop());
         document.getElementById("camera-error-msg").classList.add("hidden");
       } catch (err) {
-        console.error("Izin akses kamera ditolak:", err);
+        console.error("Akses kamera ditolak browser:", err);
         document.getElementById("camera-error-msg").classList.remove("hidden");
-        showToast("Gagal menyambungkan kamera. Harap setujui izin perangkat!", "error");
+        showToast("Gagal memulai kamera. Mohon izinkan akses kamera pada browser Anda!", "error");
         return;
       }
 
@@ -1075,7 +1087,7 @@
         },
         (errorMessage) => {}
       ).catch(err => {
-        console.error("Gagal memulai modul kamera html5-qrcode:", err);
+        console.error("Kamera gagal diaktifkan:", err);
         const errAlert = document.getElementById("camera-error-msg");
         if (errAlert) errAlert.classList.remove("hidden");
       });
@@ -1085,14 +1097,10 @@
       if (html5QrcodeScanner) {
         try {
           html5QrcodeScanner.stop().then(() => {
-            console.log("Kamera pemindai dihentikan secara aman.");
+            console.log("Sistem kamera ditutup.");
           }).catch(err => {});
         } catch (e) {}
       }
-    }
-
-    function simulateBarcodeScan(barcode) {
-      processVerifiedBarcode(barcode);
     }
 
     async function processVerifiedBarcode(barcode) {
@@ -1104,10 +1112,11 @@
       if (res && res.success) {
         playBeepSound(true);
         showToast(res.message, "success");
-        renderPage("scanner"); 
+        await syncDatabaseState(false); // Ambil data baru secara background
+        renderPage("scanner"); // Render ulang untuk mengupdate state absensi harian
       } else {
         playBeepSound(false);
-        showToast(res ? res.message : "Gagal memindai barcode", "warning");
+        showToast(res ? res.message : "Gagal memproses absensi santri", "warning");
       }
     }
   </script>
@@ -1124,7 +1133,7 @@
         <div class="space-y-6">
           <div class="border-b border-slate-200 dark:border-slate-800 pb-3">
             <h2 class="text-lg font-bold text-slate-800 dark:text-white">Kontrol Harian & Izin Syar'i (Akses Pengurus)</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Registrasi santri sakit/izin syar'i harian, dan lakukan penutupan presensi kelas Anda</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Registrasi santri sakit/izin harian, dan lakukan penutupan presensi kelas Anda</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1256,6 +1265,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("kontrol_harian");
       }
     }
@@ -1264,6 +1274,7 @@
       const res = await fetchAPI("deleteExcuse", { id });
       if (res && res.success) {
         showToast(res.message, "success");
+        await syncDatabaseState(true);
         renderPage("kontrol_harian");
       }
     }
@@ -1290,12 +1301,12 @@
 
           <div class="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-xl text-rose-800 dark:text-rose-300 text-xs space-y-1">
             <p><strong>Peringatan Sistem:</strong></p>
-            <p class="leading-relaxed">Tindakan ini akan mengunci presensi kelas untuk tanggal <strong>${today}</strong>. Santri kelas terpilih yang belum memindai barcode akan langsung diset <strong>Alfa</strong> kecuali jika surat izinnya telah Anda daftarkan di atas.</p>
+            <p class="leading-relaxed">Tindakan ini akan mengunci presensi kelas untuk tanggal <strong>${today}</strong>. Seluruh santri kelas terpilih yang belum absen akan langsung diset <strong>Alfa</strong>.</p>
           </div>
 
           <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Batalkan</button>
-            <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white">Ya, Tutup Presensi & Proses</button>
+            <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white">Tutup Presensi & Proses</button>
           </div>
         </form>
       `;
@@ -1316,6 +1327,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("kontrol_harian");
       } else {
         showToast(res ? res.message : "Gagal menutup presensi kelas", "warning");
@@ -1333,7 +1345,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Database Santri Pondok</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Informasi detail, riwayat kehadiran, dan pembuatan cetakan kartu barcode</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Kelola informasi detail santri, buat cetakan kartu barcode fisik</p>
             </div>
             ${currentSession.role === 'Administrasi' ? `
               <button onclick="openAddStudentModal()" class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition">
@@ -1460,6 +1472,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("santri");
       } else {
         showToast(res ? res.message : "Gagal menyimpan data santri", "error");
@@ -1529,7 +1542,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Manajemen Kelas & Jam Masuk KBM</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Kelola daftar kelas, shift harian, dan jam batas toleransi keterlambatan masing-masing kelas</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Atur batas waktu keterlambatan kelas, jadwal harian, dan wali pengawas</p>
             </div>
             ${currentSession.role === 'Administrasi' ? `
               <button onclick="openAddClassModal()" class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition">
@@ -1543,7 +1556,7 @@
               <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-4 transition-colors duration-200">
                 <div class="flex justify-between items-start">
                   <div class="space-y-1">
-                    <div class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-850 text-blue-600 dark:text-cyan-400 text-sm mb-1">
+                    <div class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-855 text-blue-600 dark:text-cyan-400 text-sm mb-1">
                       <i class="fa-solid fa-school"></i>
                     </div>
                     <h3 class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</h3>
@@ -1632,6 +1645,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("kelas");
       } else {
         showToast(res ? res.message : "Gagal membuat kelas baru", "error");
@@ -1758,6 +1772,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("kelola_pengurus");
       }
     }
@@ -1773,7 +1788,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Manajemen Pengguna Pesantren (Akses Kiyai)</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Buat, modifikasi, dan hapus hak akses akun seluruh administrator dan asatidz pondok</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Atur hak akses keamanan akun seluruh staf administrator dan asatidz pondok</p>
             </div>
             <button onclick="openAddFullUserModal()" class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition">
               <i class="fa-solid fa-user-plus mr-2"></i> Tambah Pengguna Baru
@@ -1834,6 +1849,7 @@
       const res = await fetchAPI("deleteUser", { id });
       if (res && res.success) {
         showToast(res.message, "success");
+        await syncDatabaseState(true);
         renderPage(tabToRefresh);
       }
     }
@@ -1899,6 +1915,7 @@
       if (res && res.success) {
         showToast(res.message, "success");
         closeModal();
+        await syncDatabaseState(true);
         renderPage("users_management");
       }
     }
@@ -1913,7 +1930,7 @@
         <div class="max-w-xl mx-auto space-y-6">
           <div class="border-b border-slate-200 dark:border-slate-800 pb-3">
             <h2 class="text-lg font-bold text-slate-800 dark:text-white">Profil & Identitas Pondok Pesantren</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Perubahan data instansi pondok, alamat, dan nomor telepon resmi</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Ubah data instansi resmi pondok pesantren pada baris Sheets</p>
           </div>
 
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4 transition-colors duration-200">
@@ -1957,7 +1974,7 @@
       const res = await fetchAPI("updateSettings", payload);
       if (res && res.success) {
         showToast(res.message, "success");
-        syncPondokNaming();
+        await syncDatabaseState(true);
         renderPage("settings_pondok");
       }
     }
@@ -1977,14 +1994,14 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Jurnal & Rekapitulasi Presensi</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Rekap log harian kehadiran santri untuk laporan Pengurus ke Wali Santri</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Riwayat log data absensi digital santri hari demi hari</p>
             </div>
             <div class="flex space-x-2 no-print">
-              <button onclick="showToast('Mengekspor laporan ke format CSV...', 'info')" class="inline-flex items-center justify-center bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl transition">
+              <button onclick="exportCSV()" class="inline-flex items-center justify-center bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl transition">
                 <i class="fa-solid fa-file-csv mr-1.5"></i> Ekspor CSV
               </button>
               <button onclick="printReport()" class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition">
-                <i class="fa-solid fa-print mr-1.5"></i> Cetak Laporan
+                <i class="fa-solid fa-print mr-1.5"></i> Cetak Jurnal
               </button>
             </div>
           </div>
@@ -2005,7 +2022,7 @@
                 <option value="Terlambat" ${laporanFilters.status === 'Terlambat' ? 'selected' : ''}>Terlambat</option>
                 <option value="Sakit" ${laporanFilters.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
                 <option value="Izin" ${laporanFilters.status === 'Izin' ? 'selected' : ''}>Izin</option>
-                <option value="Alfa" ${laporanFilters.status === 'Alfa' ? 'selected' : ''}>Alfa (Tanpa Keterangan)</option>
+                <option value="Alfa" ${laporanFilters.status === 'Alfa' ? 'selected' : ''}>Alfa</option>
               </select>
             </div>
             <div>
@@ -2107,7 +2124,7 @@
           <td class="px-5 py-3.5 text-right no-print">
             ${currentSession.role === 'Administrasi' ? `
               <button onclick="editAttendanceStatus('${a.id}')" class="text-blue-600 dark:text-cyan-400 hover:text-blue-800 dark:hover:text-cyan-300 font-bold text-[10px] uppercase">
-                Ganti Status
+                Ubah Status
               </button>
             ` : `<span class="text-slate-300 dark:text-slate-700">-</span>`}
           </td>
@@ -2143,16 +2160,32 @@
       if (resUpdate && resUpdate.success) {
         showToast(resUpdate.message, "success");
         closeModal();
-        
-        const resSync = await fetchAPI("getInitialState");
-        if (resSync && resSync.success) {
-          db = resSync.data;
-        }
-
+        await syncDatabaseState(true);
         renderLaporanTableRows();
       } else {
         showToast(resUpdate ? resUpdate.message : "Gagal merubah status", "error");
       }
+    }
+
+    function exportCSV() {
+      if (db.attendance.length === 0) {
+        showToast("Belum ada log absensi untuk diekspor!", "warning");
+        return;
+      }
+      
+      let csvContent = "data:text/csv;charset=utf-8,ID,Tanggal,Waktu,Nama,Kelas,Status,Scanner\n";
+      db.attendance.forEach(a => {
+        csvContent += `${a.id},${a.date},${a.time},"${a.name}","${a.className}",${a.status},"${a.scanner}"\n`;
+      });
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Jurnal_Absensi_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("File CSV Berhasil Diunduh!", "success");
     }
   </script>
 
@@ -2165,7 +2198,7 @@
         <div class="max-w-2xl mx-auto space-y-6">
           <div class="border-b border-slate-200 dark:border-slate-800 pb-3">
             <h2 class="text-lg font-bold text-slate-800 dark:text-white">Profil Saku</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Informasi hak akses peran Anda dan pengelolaan keamanan sandi</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Informasi hak akses peran Anda dalam sistem keamanan pondok</p>
           </div>
 
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 transition-colors duration-200">
@@ -2190,53 +2223,26 @@
   </script>
 
   <script>
-    function autoFillDemo(username, password) {
-      document.getElementById("username").value = username;
-      document.getElementById("password").value = password;
-    }
-
-    function renderDemoOnlyUI() {
-      if (!SHOW_DEMO_UI) return;
-      
-      const target = document.getElementById("demo-account-container");
-      if (!target) return;
-
-      target.innerHTML = `
-        <div class="bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-2xl p-4 space-y-3" id="demo-panel">
-          <div class="flex items-center space-x-2 text-blue-800 dark:text-cyan-400 font-bold text-xs">
-            <i class="fa-solid fa-circle-info"></i>
-            <span>AKUN SEEDER DEFAULT (DATABASE)</span>
-          </div>
-          <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Silakan klik salah satu untuk mengisi otomatis, lalu klik tombol masuk:</p>
-          
-          <div class="grid grid-cols-3 gap-2">
-            <button type="button" onclick="autoFillDemo('kiyai', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              Kiyai (Pimpinan)
-            </button>
-            <button type="button" onclick="autoFillDemo('admin', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              Admin (Konfigurasi)
-            </button>
-            <button type="button" onclick="autoFillDemo('pengurus', 'admin123')" class="bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-850 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg shadow-xs transition truncate">
-              Pengurus (Scan & Izin)
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
     function setupConfigurationBadge() {
       const badge = document.getElementById("mode-badge");
       if (!badge) return;
 
-      badge.innerText = "PRODUCTION CLOUD";
+      badge.innerText = "SINKRONISASI REAL-TIME CLOUD";
       badge.className = "hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
+    }
+
+    function checkGASUrlConfig() {
+      if (APP_CONFIG.GAS_URL === "https://script.google.com/macros/s/AKfycbz3ZXTNNFPjqDcaUHQGFto4agNZ45ITbizt2ZEpHBbfbUxX522oi5cvtmJgC8pIVwTP/exec" || !APP_CONFIG.GAS_URL) {
+        const warning = document.getElementById("config-warning");
+        if (warning) warning.classList.remove("hidden");
+      }
     }
 
     window.onload = function() {
       initDarkMode();
       startClock();
-      renderDemoOnlyUI();
       setupConfigurationBadge();
+      checkGASUrlConfig();
       syncPondokNaming();
     };
   </script>
